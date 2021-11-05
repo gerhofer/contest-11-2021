@@ -7,19 +7,22 @@ import java.util.*
 
 fun main(args: Array<String>) {
    solveAll()
-    //val res = solveLevel1("C:\\Users\\pia\\Downloads\\untitled\\src\\main\\resources\\level3\\level3_example.in")
-    //println(res)
+   // val res = solveLevel1("C:\\Users\\pia\\Downloads\\untitled\\src\\main\\resources\\level4\\level4_example3.in")
+   // println(res)
 }
 
 var index = 0
 var input = listOf<String>()
 var blocks : Deque<Block> = LinkedList()
+var executions: Queue<Block> = LinkedList()
 val variables = mutableMapOf<String, String>()
 const val error = "ERROR"
 
 data class Block(
     val startIndex: Int,
-    val statement: String // start else or if
+    val statement: String,
+    var goTo: Int = -1,
+    val executions: Queue<Block> = LinkedList() // start else or if
 )
 
 fun solveLevel1(filename: String): List<String> {
@@ -34,6 +37,11 @@ fun solveLevel1(filename: String): List<String> {
         try {
             val statement = input[index]
             when (statement) {
+                "postpone" -> {
+                    blocks.peek().executions.add(Block(index, "postpone"))
+                    index++
+                    skipBlock()
+                }
                 "var" -> {
                     val name = input[index + 1]
                     if (variables.containsKey(name)) {
@@ -63,16 +71,25 @@ fun solveLevel1(filename: String): List<String> {
                     index++
                 }
                 "end" -> {
-                    val currentBlock = blocks.pop()
-                    if (currentBlock.statement == "start") {
-                        results.add(currentResult)
-                        currentResult = ""
-                        index++
-                    } else if (currentBlock.statement == "if") {
-                        index += 2
-                        skipBlock()
+                    val currentBlock = blocks.peek()
+                    if (currentBlock.executions.isNotEmpty()) {
+                        currentBlock.goTo = index
+                        val firstExec = currentBlock.executions.remove()
+                        blocks.add(Block(firstExec.startIndex, "postpone"))
+                        index = firstExec.startIndex + 1
                     } else {
-                        index++
+                        index = if (currentBlock.goTo != -1) { currentBlock.goTo } else { index }
+                        blocks.pop()
+                        if (currentBlock.statement == "start") {
+                            results.add(currentResult)
+                            currentResult = ""
+                            index++
+                        } else if (currentBlock.statement == "if") {
+                            index += 2
+                            skipBlock()
+                        } else {
+                            index++
+                        }
                     }
                 }
                 "return" -> {
@@ -107,7 +124,7 @@ fun solveLevel1(filename: String): List<String> {
 }
 
 private fun moveToNextStart() {
-    while (input[index] != "start") {
+    while (index < input.size && input[index] != "start") {
         index++
     }
 }
@@ -117,7 +134,7 @@ private fun skipBlock() {
     while (blockCounter != 0) {
         if (input[index] == "end") {
             blockCounter -= 1
-        } else if (input[index] == "start" || input[index] == "if" || input[index] == "else") {
+        } else if (input[index] == "start" || input[index] == "if" || input[index] == "else" || input[index] == "postpone") {
             blockCounter += 1
         }
         index++
@@ -143,7 +160,7 @@ fun parseVariableOrValue(argument: String) : String {
 }
 
 fun solveAll() {
-    val level = "level3"
+    val level = "level4"
     val levelDir = "C:\\Users\\pia\\Downloads\\untitled\\src\\main\\resources\\$level"
 
     File(levelDir).walk().filter { it.isFile && it.absolutePath.endsWith(".in") }.forEach {
