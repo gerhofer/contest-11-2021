@@ -1,5 +1,6 @@
 import java.io.File
 import java.lang.Error
+import java.lang.RuntimeException
 import java.util.*
 
 // TODO
@@ -7,8 +8,8 @@ import java.util.*
 
 fun main(args: Array<String>) {
    solveAll()
-   // val res = solveLevel1("C:\\Users\\pia\\Downloads\\untitled\\src\\main\\resources\\level4\\level4_example3.in")
-   // println(res)
+   //val res = solveLevel1("C:\\Users\\pia\\Downloads\\untitled\\src\\main\\resources\\level4\\level4_example3.in")
+   //println(res)
 }
 
 var index = 0
@@ -25,6 +26,15 @@ data class Block(
     val executions: Queue<Block> = LinkedList() // start else or if
 )
 
+fun addToFirstNonPostpone(blockToAdd: Block) {
+    for (block in blocks) {
+        if (block.statement != "postpone") {
+            block.executions.add(blockToAdd)
+            return
+        }
+    }
+}
+
 fun solveLevel1(filename: String): List<String> {
     val results = mutableListOf<String>()
     var currentResult = ""
@@ -38,7 +48,7 @@ fun solveLevel1(filename: String): List<String> {
             val statement = input[index]
             when (statement) {
                 "postpone" -> {
-                    blocks.peek().executions.add(Block(index, "postpone"))
+                    addToFirstNonPostpone(Block(index, "postpone"))
                     index++
                     skipBlock()
                 }
@@ -73,9 +83,9 @@ fun solveLevel1(filename: String): List<String> {
                 "end" -> {
                     val currentBlock = blocks.peek()
                     if (currentBlock.executions.isNotEmpty()) {
-                        currentBlock.goTo = index
+                        val goTo = index
                         val firstExec = currentBlock.executions.remove()
-                        blocks.add(Block(firstExec.startIndex, "postpone"))
+                        blocks.push(Block(firstExec.startIndex, "postpone", goTo))
                         index = firstExec.startIndex + 1
                     } else {
                         index = if (currentBlock.goTo != -1) { currentBlock.goTo } else { index }
@@ -87,7 +97,7 @@ fun solveLevel1(filename: String): List<String> {
                         } else if (currentBlock.statement == "if") {
                             index += 2
                             skipBlock()
-                        } else {
+                        } else if (currentBlock.statement == "else") {
                             index++
                         }
                     }
@@ -134,7 +144,13 @@ private fun skipBlock() {
     while (blockCounter != 0) {
         if (input[index] == "end") {
             blockCounter -= 1
-        } else if (input[index] == "start" || input[index] == "if" || input[index] == "else" || input[index] == "postpone") {
+        } else if (input[index] == "start"
+            || input[index] == "if"
+            || input[index] == "else"
+            || input[index] == "postpone") {
+            if (input[index] == "start") {
+                throw RuntimeException("start must not happen")
+            }
             blockCounter += 1
         }
         index++
